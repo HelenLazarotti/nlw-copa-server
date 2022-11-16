@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+generator erd {
+  provider = "prisma-erd-generator"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+//precisamos criar uma tabela para contagem de bolões: tabela se chama: model > nome da tabela: Pool { coloco minhas colunas e afins}
+model Pool {
+  //@id significa que vai ser minha PK, chave 1ª
+  id        String   @id @default(cuid()) //gera id automático
+  title     String
+  code      String   @unique //cada bolao vai ter um código, po usuário compartilhar com outras pessoas
+  //@unique é pra ñ inserir 2 bolões com o mesmao código, ou seja tem código ÚNICO
+  createdAt DateTime @default(now()) //quando o registro for cirado ele vai anotar a data atual, dentro desse campo
+  ownerId   String? //ta assim pra WEB, pra não precisar fazer login
+
+  participants Participant[]
+
+  owner User? @relation(fields: [ownerId], references: [id]) //relacionado com a tabela de user
+}
+
+model Participant {
+  id     String @id @default(cuid())
+  userId String //sempre botar os fields antes do relacionamento
+  poolId String
+
+  guesses Guess[] //preciso sempre assim nometabela NomeTabelaum, quando há @relation relacionamento com outra tabela.
+
+  user User @relation(fields: [userId], references: [id])
+
+  pool Pool @relation(fields: [poolId], references: [id])
+
+  @@unique([userId, poolId]) //nessa tabela, se eu procurar por um usuario ou bolão específico eu sempre vou ter no máximo 1 registro
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String //tem código ÚNICO
+  googleId  String?  @unique
+  avatarUrl String? //com o ? significa que este campo pode ficar vazio no banco de dados
+  createdAt DateTime @default(now())
+
+  participatingAt Participant[] //usuario está particiando em vários bolões
+  ownPools        Pool[] //armazena quais bolões o usuário é dono.
+}
+
+model Game {
+  id                    String   @id @default(cuid())
+  date                  DateTime
+  firstTeamCountryCode  String //pra pegar a sigla do país pra depois lá aparecer nome completo
+  secondTeamCountryCode String
+  guesses               Guess[]
+}
+
+model Guess {
+  id               String   @id @default(cuid())
+  firstTeamPoints  Int //aqui é pra pessoa dizer quantos pontos ela acha que o 1º time vai fazer
+  secondTeamPoints Int
+  createdAt        DateTime @default(now())
+  gameId           String
+  participantId    String
+
+  game        Game        @relation(fields: [gameId], references: [id]) //crio isso pra relacionar/relacionamento com outra tabela e na tbl que quero relacionar coloco guesses Guess[]
+  participant Participant @relation(fields: [participantId], references: [id])
+
+  //só posso ter um registro onde essas 2 infos batem, não posso ter 1 participante enviando 2 palpites:
+  @@unique([participantId, gameId])
+}
